@@ -1,5 +1,5 @@
 // Service Worker for MoneyTracker - Offline & High Performance
-const CACHE_NAME = 'moneytracker-cache-v6';
+const CACHE_NAME = 'moneytracker-cache-v7';
 const STATIC_ASSETS = [
   './',
   './index.html',

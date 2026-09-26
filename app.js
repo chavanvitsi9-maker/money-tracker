@@ -1626,17 +1626,17 @@ function renderLedger(filteredList = null) {
     html += `
       <div class="daily-ledger-card mb-4 animate-fade-in">
         <!-- Daily Header -->
-        <div class="daily-ledger-header px-4 py-2.5 flex items-center justify-between text-xs">
-          <div class="flex items-center gap-2">
-            <i class="fa-regular fa-calendar text-slate-400"></i>
-            <span class="font-bold text-slate-800 text-sm">${friendlyDate}</span>
+        <div class="daily-ledger-header px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <i class="fa-regular fa-calendar text-slate-400 text-xs"></i>
+            <span class="font-bold text-slate-800 text-xs sm:text-sm">${friendlyDate}</span>
             ${dayBadge}
           </div>
-          <div class="flex items-center gap-2.5">
-            ${dayIncome > 0 ? `<span class="text-emerald-600 font-semibold">+฿${formatNumber(dayIncome)}</span>` : ''}
-            ${dayExpense > 0 ? `<span class="text-rose-600 font-semibold">-฿${formatNumber(dayExpense)}</span>` : ''}
-            ${daySavings > 0 ? `<span class="text-[11px] text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200/70">🐷 ออม ฿${formatNumber(daySavings)}</span>` : ''}
-            ${daySavingsWithdrawal > 0 ? `<span class="text-[11px] text-sky-700 font-bold bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200/70">💸 ดึงออม ฿${formatNumber(daySavingsWithdrawal)}</span>` : ''}
+          <div class="flex items-center justify-end flex-wrap gap-1 sm:gap-2">
+            ${dayIncome > 0 ? `<span class="text-emerald-600 font-semibold text-xs sm:text-sm">+฿${formatNumber(dayIncome)}</span>` : ''}
+            ${dayExpense > 0 ? `<span class="text-rose-600 font-semibold text-xs sm:text-sm">-฿${formatNumber(dayExpense)}</span>` : ''}
+            ${daySavings > 0 ? `<span class="text-[10px] sm:text-[11px] text-teal-700 font-bold bg-teal-50 px-1.5 sm:px-2 py-0.5 rounded-full border border-teal-200/70 whitespace-nowrap">🐷 ออม ฿${formatNumber(daySavings)}</span>` : ''}
+            ${daySavingsWithdrawal > 0 ? `<span class="text-[10px] sm:text-[11px] text-sky-700 font-bold bg-sky-50 px-1.5 sm:px-2 py-0.5 rounded-full border border-sky-200/70 whitespace-nowrap">💸 ดึงออม ฿${formatNumber(daySavingsWithdrawal)}</span>` : ''}
           </div>
         </div>
 
@@ -1658,23 +1658,23 @@ function renderLedger(filteredList = null) {
                   : '');
 
             return `
-              <div class="p-3.5 hover:bg-slate-50 flex items-center justify-between gap-3 transition-colors group">
+              <div class="p-3 sm:p-3.5 hover:bg-slate-50 flex items-center justify-between gap-2 sm:gap-3 transition-colors group">
                 
                 <!-- Left: Category Icon & Details -->
-                <div class="flex items-center gap-3 min-w-0">
-                  <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm shadow-sm shrink-0" style="background-color: ${cat?.color || '#64748B'}">
+                <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-white text-xs sm:text-sm shadow-sm shrink-0" style="background-color: ${cat?.color || '#64748B'}">
                     <i class="fa-solid ${cat?.icon || 'fa-tag'}"></i>
                   </div>
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-bold text-slate-800 text-sm truncate">${cat?.name || tx.category}</span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                      <span class="font-bold text-slate-800 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">${cat?.name || tx.category}</span>
                       ${savingsBadge}
-                      <span class="text-[11px] text-slate-400 ml-1"><i class="fa-regular fa-clock text-[10px] mr-0.5"></i>${tx.time || '12:00'}</span>
+                      <span class="text-[10px] sm:text-[11px] text-slate-400 ml-0.5"><i class="fa-regular fa-clock text-[9px] mr-0.5"></i>${tx.time || '12:00'}</span>
                     </div>
-                    <div class="flex items-center gap-2 mt-0.5">
-                      ${tx.note ? `<span class="text-xs text-slate-600 truncate max-w-[200px] sm:max-w-xs">${escapeHtml(tx.note)}</span>` : ''}
-                      <span class="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                        <i class="fa-solid ${payment.icon} text-[9px] text-slate-400"></i>
+                    <div class="flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
+                      ${tx.note ? `<span class="text-xs text-slate-600 truncate max-w-[120px] sm:max-w-xs">${escapeHtml(tx.note)}</span>` : ''}
+                      <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+                        <i class="fa-solid ${payment.icon} text-[8px] sm:text-[9px] text-slate-400"></i>
                         ${payment.name}
                       </span>
                     </div>
@@ -1682,23 +1682,23 @@ function renderLedger(filteredList = null) {
                 </div>
 
                 <!-- Right: Amount & Actions -->
-                <div class="flex items-center gap-3 shrink-0">
+                <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
                   <div class="text-right">
-                    <div class="font-bold text-base ${amountColor}">
+                    <div class="font-bold text-sm sm:text-base ${amountColor}">
                       ${isIncome ? '+' : '-'}฿${formatNumber(tx.amount)}
                     </div>
                   </div>
 
                   <!-- Quick Action Buttons -->
-                  <div class="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity no-print">
-                    <button onclick="duplicateTransaction('${tx.id}')" title="คัดลอกรายการนี้เป็นของวันนี้" class="w-7 h-7 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 flex items-center justify-center transition-colors">
-                      <i class="fa-solid fa-copy text-xs"></i>
+                  <div class="flex items-center gap-0.5 sm:gap-1 opacity-80 sm:opacity-60 group-hover:opacity-100 transition-opacity no-print">
+                    <button onclick="duplicateTransaction('${tx.id}')" title="คัดลอกรายการนี้เป็นของวันนี้" class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 flex items-center justify-center transition-colors">
+                      <i class="fa-solid fa-copy text-[10px] sm:text-xs"></i>
                     </button>
-                    <button onclick="startEditing('${tx.id}')" title="แก้ไข" class="w-7 h-7 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-indigo-600 flex items-center justify-center transition-colors">
-                      <i class="fa-solid fa-pen text-xs"></i>
+                    <button onclick="startEditing('${tx.id}')" title="แก้ไข" class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-indigo-600 flex items-center justify-center transition-colors">
+                      <i class="fa-solid fa-pen text-[10px] sm:text-xs"></i>
                     </button>
-                    <button onclick="deleteTransaction('${tx.id}')" title="ลบ" class="w-7 h-7 rounded-lg hover:bg-rose-100 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors">
-                      <i class="fa-solid fa-trash text-xs"></i>
+                    <button onclick="deleteTransaction('${tx.id}')" title="ลบ" class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg hover:bg-rose-100 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors">
+                      <i class="fa-solid fa-trash text-[10px] sm:text-xs"></i>
                     </button>
                   </div>
                 </div>

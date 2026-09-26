@@ -22,28 +22,28 @@
   <!-- Custom Styles -->
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800 antialiased selection:bg-indigo-500 selection:text-white pb-12">
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased selection:bg-indigo-500 selection:text-white pb-12 overflow-x-hidden w-full max-w-full">
 
   <!-- ================= STICKY TOP BAR ================= -->
-  <header class="bg-white/95 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200/80 shadow-xs">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+  <header class="bg-white/95 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200/80 shadow-xs w-full overflow-x-hidden">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-1.5 sm:gap-2">
       
       <!-- Brand Logo -->
-      <div class="flex items-center gap-2.5 shrink-0">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-sm shadow-indigo-200">
-          <i class="fa-solid fa-pen-nib text-sm"></i>
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-sm shadow-indigo-200 shrink-0">
+          <i class="fa-solid fa-pen-nib text-xs sm:text-sm"></i>
         </div>
         <div>
-          <h1 class="font-bold text-base text-slate-900 leading-tight">MoneyTracker</h1>
-          <p class="text-[11px] text-slate-400">สมุดจดรายรับ-รายจ่าย</p>
+          <h1 class="font-bold text-sm sm:text-base text-slate-900 leading-tight">MoneyTracker</h1>
+          <p class="text-[10px] text-slate-400 hidden sm:block">สมุดจดรายรับ-รายจ่าย</p>
         </div>
       </div>
 
       <!-- Compact Header Summary Pills (ไม่เกะกะสายตา) -->
-      <div class="flex items-center gap-2.5 sm:gap-5 bg-slate-100/80 px-3 sm:px-4 py-1.5 rounded-2xl border border-slate-200/60">
+      <div class="flex items-center gap-2 sm:gap-5 bg-slate-100/80 px-2 sm:px-4 py-1 sm:py-1.5 rounded-2xl border border-slate-200/60 shrink-0">
         <div class="text-left">
-          <div class="text-[10px] text-slate-400 leading-tight">คงเหลือใช้จ่าย</div>
-          <div id="summaryNetBalance" class="text-sm sm:text-base font-bold text-emerald-600">฿0.00</div>
+          <div class="text-[9px] sm:text-[10px] text-slate-400 leading-tight">คงเหลือ</div>
+          <div id="summaryNetBalance" class="text-xs sm:text-base font-bold text-emerald-600">฿0.00</div>
         </div>
         <div class="hidden md:block h-6 w-px bg-slate-200"></div>
         <div class="hidden md:block text-left">
@@ -68,31 +68,31 @@
       </div>
 
       <!-- Top Actions (Toggle Analytics & Tools) -->
-      <div class="flex items-center gap-1.5 shrink-0">
-        <!-- Shortcuts Helper Button -->
-        <button id="shortcutsBtn" title="ดูคีย์ลัดทั้งหมด (กด ?)" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 transition-all flex items-center gap-1.5 shadow-2xs">
+      <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <!-- Shortcuts Helper Button (desktop keyboard only) -->
+        <button id="shortcutsBtn" title="ดูคีย์ลัดทั้งหมด (กด ?)" class="hidden md:flex p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 transition-all items-center gap-1.5 shadow-2xs">
           <i class="fa-regular fa-keyboard text-xs"></i>
-          <span class="hidden md:inline">คีย์ลัด</span>
+          <span>คีย์ลัด</span>
         </button>
 
         <!-- Sound Toggle Button -->
-        <button id="soundToggleBtn" title="เปิด/ปิดเสียงเอฟเฟกต์ (กด M)" class="p-1.5 sm:p-2 rounded-xl text-xs font-medium text-slate-600 hover:text-indigo-600 hover:bg-slate-100 border border-slate-200 transition-all">
+        <button id="soundToggleBtn" title="เปิด/ปิดเสียงเอฟเฟกต์ (กด M)" class="p-1.5 sm:p-2 rounded-xl text-xs font-medium text-slate-600 hover:text-indigo-600 hover:bg-slate-100 border border-slate-200 transition-all shrink-0">
           <i id="soundToggleIcon" class="fa-solid fa-volume-high text-xs text-indigo-600"></i>
         </button>
 
         <!-- Toggle Analytics Button -->
-        <button id="toggleAnalyticsBtn" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all flex items-center gap-1.5 shadow-2xs">
-          <i class="fa-solid fa-chart-pie"></i>
-          <span class="hidden sm:inline">ดูกราฟและสถิติ</span>
+        <button id="toggleAnalyticsBtn" title="ดูกราฟและสถิติ" class="p-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0">
+          <i class="fa-solid fa-chart-pie text-xs"></i>
+          <span class="hidden sm:inline">กราฟ</span>
         </button>
 
         <!-- Data Tools Dropdown Menu -->
-        <div class="relative no-print border-l border-slate-200 pl-1.5">
-          <button id="toolsDropdownBtn" type="button" class="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-100 border border-slate-200 transition-all flex items-center gap-1.5 shadow-2xs" title="จัดการข้อมูล">
+        <div class="relative no-print border-l border-slate-200 pl-1 sm:pl-1.5">
+          <button id="toolsDropdownBtn" type="button" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-100 border border-slate-200 transition-all flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0" title="จัดการข้อมูล">
             <i class="fa-solid fa-cloud-arrow-up text-slate-500 text-xs"></i>
-            <span class="hidden sm:inline">จัดการข้อมูล</span>
+            <span class="hidden md:inline">จัดการข้อมูล</span>
             <span id="gsheetStatusDot" class="hidden w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white"></span>
-            <i class="fa-solid fa-chevron-down text-[9px] text-slate-400"></i>
+            <i class="fa-solid fa-chevron-down text-[8px] sm:text-[9px] text-slate-400"></i>
           </button>
           
           <div id="toolsDropdownMenu" class="hidden absolute right-0 mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-50 text-xs animate-fade-in">
@@ -198,8 +198,8 @@
   </section>
 
   <!-- ================= MAIN TWO-COLUMN WORKSPACE ================= -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-5">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mt-4 sm:mt-5 overflow-x-hidden w-full">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start w-full">
       
       <!-- ================= LEFT COLUMN: QUICK ENTRY FORM (FOCUS AREA) ================= -->
       <section class="lg:col-span-5 lg:sticky lg:top-20 z-20">
@@ -344,15 +344,15 @@
           
           <!-- Period Filter Chips -->
           <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 w-full sm:w-auto">
-              <button class="period-btn px-3 py-1 rounded-lg text-xs font-medium bg-white text-slate-600 hover:bg-slate-100 transition-colors" data-period="today">วันนี้</button>
-              <button class="period-btn px-3 py-1 rounded-lg text-xs font-medium bg-white text-slate-600 hover:bg-slate-100 transition-colors" data-period="this_week">สัปดาห์นี้</button>
-              <button class="period-btn px-3 py-1 rounded-lg text-xs font-medium active bg-indigo-600 text-white shadow-2xs transition-colors" data-period="this_month">เดือนนี้</button>
-              <button class="period-btn px-3 py-1 rounded-lg text-xs font-medium bg-white text-slate-600 hover:bg-slate-100 transition-colors" data-period="all">ทั้งหมด</button>
-              <button class="period-btn px-3 py-1 rounded-lg text-xs font-medium bg-white text-slate-600 hover:bg-slate-100 transition-colors" data-period="custom">กำหนดเอง</button>
+            <div class="flex items-center gap-1 sm:gap-1.5 overflow-x-auto pb-1 sm:pb-0 w-full sm:w-auto no-scrollbar">
+              <button class="period-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium bg-white text-slate-600 hover:bg-slate-100 transition-colors shrink-0 whitespace-nowrap" data-period="today">วันนี้</button>
+              <button class="period-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium bg-white text-slate-600 hover:bg-slate-100 transition-colors shrink-0 whitespace-nowrap" data-period="this_week">สัปดาห์นี้</button>
+              <button class="period-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium active bg-indigo-600 text-white shadow-2xs transition-colors shrink-0 whitespace-nowrap" data-period="this_month">เดือนนี้</button>
+              <button class="period-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium bg-white text-slate-600 hover:bg-slate-100 transition-colors shrink-0 whitespace-nowrap" data-period="all">ทั้งหมด</button>
+              <button class="period-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium bg-white text-slate-600 hover:bg-slate-100 transition-colors shrink-0 whitespace-nowrap" data-period="custom">กำหนดเอง</button>
             </div>
 
-            <div class="flex items-center gap-1 no-print">
+            <div class="flex items-center gap-1 no-print shrink-0 ml-auto sm:ml-0">
               <button id="clearAllBtn" title="ล้างข้อมูลทั้งหมด" class="text-xs px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 font-medium inline-flex items-center gap-1">
                 <i class="fa-solid fa-trash-can"></i>
                 <span>ล้างข้อมูล</span>
