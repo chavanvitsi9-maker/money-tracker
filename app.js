@@ -202,6 +202,10 @@ const state = {
   userKeywords: {}, // เรียนรู้และจำคำศัพท์ของผู้ใช้ (Self-learning custom dictionary)
   soundEnabled: true,
   ledgerVisibleDays: 15,
+  currentTab: 'ledger', // 'ledger' | 'summary'
+  summaryMonth: '', // 'YYYY-MM'
+  summarySortBy: 'amount', // 'amount' | 'count'
+  expandedCategories: new Set(),
   entryForm: {
     type: 'expense',
     selectedCategoryId: 'food',
@@ -223,6 +227,7 @@ const state = {
     lastSync: null
   }
 };
+
 
 // Audio Synthesizer (Web Audio API - 0 latency, 0 external files)
 let audioCtx = null;
@@ -372,6 +377,12 @@ function initApp() {
   const customEndEl = document.getElementById('customEndDate');
   if (customStartEl) customStartEl.value = formatDateToISO(firstDay);
   if (customEndEl) customEndEl.value = formatDateToISO(lastDay);
+
+  // Set default summary month (current month)
+  const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  state.summaryMonth = currentYearMonth;
+  const summaryMonthPicker = document.getElementById('summaryMonthPicker');
+  if (summaryMonthPicker) summaryMonthPicker.value = currentYearMonth;
 
   // Set default form date/time
   setDefaultFormDateTime();
@@ -1085,8 +1096,31 @@ function setupEventListeners() {
     debouncedSearch(e.target.value.trim().toLowerCase());
   });
 
-  // Toggle Analytics Section
-  document.getElementById('toggleAnalyticsBtn')?.addEventListener('click', toggleAnalyticsView);
+  // Main Navigation Tabs
+  document.getElementById('navTabLedger')?.addEventListener('click', () => switchTab('ledger'));
+  document.getElementById('navTabSummary')?.addEventListener('click', () => switchTab('summary'));
+
+  // Summary Month Controls
+  document.getElementById('summaryPrevMonthBtn')?.addEventListener('click', prevSummaryMonth);
+  document.getElementById('summaryNextMonthBtn')?.addEventListener('click', nextSummaryMonth);
+  document.getElementById('summaryCurrentMonthBtn')?.addEventListener('click', resetSummaryCurrentMonth);
+  document.getElementById('summaryMonthPicker')?.addEventListener('change', (e) => {
+    if (e.target.value) setSummaryMonth(e.target.value);
+  });
+  document.getElementById('summaryPrintBtn')?.addEventListener('click', handlePrintSummary);
+
+  // Summary Ranking Sort Buttons
+  document.getElementById('sortRankByAmountBtn')?.addEventListener('click', () => setSummarySortBy('amount'));
+  document.getElementById('sortRankByCountBtn')?.addEventListener('click', () => setSummarySortBy('count'));
+
+  // Toggle Analytics Section (Shortcut from top bar to Summary View)
+  document.getElementById('toggleAnalyticsBtn')?.addEventListener('click', () => {
+    if (state.currentTab === 'ledger') {
+      switchTab('summary');
+    } else {
+      switchTab('ledger');
+    }
+  });
 
   // Category modal
   document.getElementById('saveNewCategoryBtn')?.addEventListener('click', handleAddNewCategory);
@@ -1505,6 +1539,11 @@ function render() {
   if (state.showAnalytics) {
     renderCharts(filtered, summary);
   }
+
+  // Update Summary Dashboard if on summary tab
+  if (state.currentTab === 'summary') {
+    renderSummaryView();
+  }
 }
 
 function renderCompactHeaderSummary(summary) {
@@ -1920,6 +1959,872 @@ function renderTrendBarChart(transactions) {
       }
     }
   });
+}
+
+// ==========================================================================
+// Monthly Summary Dashboard & Expense Ranking System (Tab 2)
+// ==========================================================================
+
+let summaryDonutChartInstance = null;
+let summaryDailyTrendChartInstance = null;
+
+function switchTab(tabName) {
+  state.currentTab = tabName;
+  const ledgerView = document.getElementById('ledgerView');
+  const summaryView = document.getElementById('summaryView');
+  const navTabLedger = document.getElementById('navTabLedger');
+  const navTabSummary = document.getElementById('navTabSummary');
+
+  if (tabName === 'summary') {
+    if (ledgerView) ledgerView.classList.add('hidden');
+    if (summaryView) summaryView.classList.remove('hidden');
+
+    if (navTabLedger) {
+      navTabLedger.classList.remove('active', 'bg-white', 'text-indigo-600');
+      navTabLedger.classList.add('text-slate-500');
+    }
+    if (navTabSummary) {
+      navTabSummary.classList.add('active', 'bg-white', 'text-indigo-600');
+      navTabSummary.classList.remove('text-slate-500');
+    }
+
+    renderSummaryView();
+  } else {
+    if (summaryView) summaryView.classList.add('hidden');
+    if (ledgerView) ledgerView.classList.remove('hidden');
+
+    if (navTabSummary) {
+      navTabSummary.classList.remove('active', 'bg-white', 'text-indigo-600');
+      navTabSummary.classList.add('text-slate-500');
+    }
+    if (navTabLedger) {
+      navTabLedger.classList.add('active', 'bg-white', 'text-indigo-600');
+      navTabLedger.classList.remove('text-slate-500');
+    }
+
+    // Auto focus smart input
+    setTimeout(() => {
+      document.getElementById('smartInput')?.focus();
+    }, 60);
+  }
+}
+
+function getThaiMonthLabel(yearMonthStr) {
+  if (!yearMonthStr) return '';
+  const [yStr, mStr] = yearMonthStr.split('-');
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
+  const thaiMonthsFull = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+  ];
+  const mName = thaiMonthsFull[month - 1] || '';
+  const thaiYear = year + 543;
+  return `${mName} ${thaiYear}`;
+}
+
+function setSummaryMonth(yearMonthStr) {
+  state.summaryMonth = yearMonthStr;
+  const picker = document.getElementById('summaryMonthPicker');
+  if (picker) picker.value = yearMonthStr;
+  renderSummaryView();
+}
+
+function prevSummaryMonth() {
+  if (!state.summaryMonth) {
+    const now = new Date();
+    state.summaryMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const [yStr, mStr] = state.summaryMonth.split('-');
+  let year = parseInt(yStr, 10);
+  let month = parseInt(mStr, 10) - 1;
+  if (month < 1) {
+    month = 12;
+    year -= 1;
+  }
+  setSummaryMonth(`${year}-${String(month).padStart(2, '0')}`);
+}
+
+function nextSummaryMonth() {
+  if (!state.summaryMonth) {
+    const now = new Date();
+    state.summaryMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const [yStr, mStr] = state.summaryMonth.split('-');
+  let year = parseInt(yStr, 10);
+  let month = parseInt(mStr, 10) + 1;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  setSummaryMonth(`${year}-${String(month).padStart(2, '0')}`);
+}
+
+function resetSummaryCurrentMonth() {
+  const now = new Date();
+  setSummaryMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+}
+
+function toggleCategoryDrilldown(catId) {
+  if (state.expandedCategories.has(catId)) {
+    state.expandedCategories.delete(catId);
+  } else {
+    state.expandedCategories.add(catId);
+  }
+  const data = calculateMonthlySummaryData(state.summaryMonth);
+  renderRankedCategories(data);
+}
+
+function setSummarySortBy(sortBy) {
+  state.summarySortBy = sortBy;
+  const btnAmount = document.getElementById('sortRankByAmountBtn');
+  const btnCount = document.getElementById('sortRankByCountBtn');
+  if (sortBy === 'amount') {
+    btnAmount?.classList.add('bg-white', 'text-indigo-600', 'font-bold');
+    btnAmount?.classList.remove('font-medium', 'text-slate-500');
+    btnCount?.classList.remove('bg-white', 'text-indigo-600', 'font-bold');
+    btnCount?.classList.add('font-medium', 'text-slate-500');
+  } else {
+    btnCount?.classList.add('bg-white', 'text-indigo-600', 'font-bold');
+    btnCount?.classList.remove('font-medium', 'text-slate-500');
+    btnAmount?.classList.remove('bg-white', 'text-indigo-600', 'font-bold');
+    btnAmount?.classList.add('font-medium', 'text-slate-500');
+  }
+  renderSummaryView();
+}
+
+function calculateMonthlySummaryData(yearMonthStr) {
+  if (!yearMonthStr) {
+    const now = new Date();
+    yearMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const [yStr, mStr] = yearMonthStr.split('-');
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  const now = new Date();
+  const isCurrentMonth = (now.getFullYear() === year && (now.getMonth() + 1) === month);
+  const isPastMonth = (year < now.getFullYear() || (year === now.getFullYear() && (now.getMonth() + 1) > month));
+  
+  let daysElapsed = daysInMonth;
+  if (isCurrentMonth) {
+    daysElapsed = Math.max(1, now.getDate());
+  } else if (!isPastMonth) {
+    daysElapsed = 0; // future month
+  }
+
+  // Filter transactions for this month
+  const monthTxList = state.transactions.filter(tx => tx.date && tx.date.startsWith(yearMonthStr));
+
+  let totalIncome = 0;
+  let genuineIncome = 0;
+  let totalExpense = 0;
+  let actualSpending = 0;
+  let totalSavings = 0;
+  let totalSavingsWithdrawal = 0;
+
+  const expenseByCategory = {};
+  const incomeByCategory = {};
+  const categoryTxMap = {}; // catId -> array of tx
+  const dailyExpenses = {}; // day (1..31) -> amount
+  const dailyIncome = {};
+  const paymentMethodExpenses = {
+    promptpay: 0,
+    cash: 0,
+    bank: 0,
+    credit_card: 0,
+    wallet: 0
+  };
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    dailyExpenses[d] = 0;
+    dailyIncome[d] = 0;
+  }
+
+  monthTxList.forEach(tx => {
+    const dPart = parseInt(tx.date.split('-')[2], 10);
+    if (tx.type === 'income') {
+      totalIncome += tx.amount;
+      incomeByCategory[tx.category] = (incomeByCategory[tx.category] || 0) + tx.amount;
+      if (tx.category === 'savings_withdrawal') {
+        totalSavingsWithdrawal += tx.amount;
+      } else {
+        genuineIncome += tx.amount;
+      }
+      if (dailyIncome[dPart] !== undefined) {
+        dailyIncome[dPart] += tx.amount;
+      }
+    } else {
+      totalExpense += tx.amount;
+      expenseByCategory[tx.category] = (expenseByCategory[tx.category] || 0) + tx.amount;
+      if (tx.category === 'savings') {
+        totalSavings += tx.amount;
+      } else {
+        actualSpending += tx.amount;
+      }
+      if (dailyExpenses[dPart] !== undefined) {
+        dailyExpenses[dPart] += tx.amount;
+      }
+
+      // Group tx by category for drilldown
+      if (!categoryTxMap[tx.category]) {
+        categoryTxMap[tx.category] = [];
+      }
+      categoryTxMap[tx.category].push(tx);
+
+      // Payment method
+      const pm = tx.paymentMethod || 'promptpay';
+      if (paymentMethodExpenses[pm] !== undefined) {
+        paymentMethodExpenses[pm] += tx.amount;
+      } else {
+        paymentMethodExpenses[pm] = tx.amount;
+      }
+    }
+  });
+
+  const netSavings = Math.max(0, totalSavings - totalSavingsWithdrawal);
+  const netBalance = totalIncome - totalExpense;
+  const incomeBase = genuineIncome > 0 ? genuineIncome : totalIncome;
+  const dedicatedSavingsRate = incomeBase > 0 ? ((netSavings / incomeBase) * 100) : 0;
+  const balancePercentOfIncome = incomeBase > 0 ? ((netBalance / incomeBase) * 100) : 0;
+
+  // Daily Average
+  const dailyAverageExpense = daysElapsed > 0 ? (totalExpense / daysElapsed) : 0;
+
+  // Month-end forecast
+  const projectedTotalExpense = isCurrentMonth 
+    ? (dailyAverageExpense * daysInMonth) 
+    : (isPastMonth ? totalExpense : 0);
+
+  // Peak Spending Day
+  let peakDay = 0;
+  let peakAmount = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (dailyExpenses[d] > peakAmount) {
+      peakAmount = dailyExpenses[d];
+      peakDay = d;
+    }
+  }
+
+  // Find dominant note or category on peak day
+  let peakDayDesc = '';
+  if (peakDay > 0) {
+    const peakDateStr = `${yearMonthStr}-${String(peakDay).padStart(2, '0')}`;
+    const peakTx = monthTxList.filter(t => t.type === 'expense' && t.date === peakDateStr);
+    if (peakTx.length > 0) {
+      peakTx.sort((a, b) => b.amount - a.amount);
+      const topNote = peakTx[0].note || getCategoryObj('expense', peakTx[0].category)?.name || 'รายจ่าย';
+      peakDayDesc = `${topNote} (฿${formatNumber(peakTx[0].amount)})${peakTx.length > 1 ? ` และอีก ${peakTx.length - 1} รายการ` : ''}`;
+    }
+  }
+
+  // Top Payment Method
+  let topPmKey = 'promptpay';
+  let topPmAmount = 0;
+  Object.entries(paymentMethodExpenses).forEach(([pmKey, amt]) => {
+    if (amt > topPmAmount) {
+      topPmAmount = amt;
+      topPmKey = pmKey;
+    }
+  });
+  const topPmObj = PAYMENT_METHODS[topPmKey] || { name: 'พร้อมเพย์', icon: 'fa-qrcode' };
+  const topPmPercent = totalExpense > 0 ? ((topPmAmount / totalExpense) * 100).toFixed(0) : 0;
+
+  // Ranking Categories: มากสุด ➔ น้อยสุด
+  const rankedCategories = Object.entries(expenseByCategory).map(([catId, amount]) => {
+    const cat = getCategoryObj('expense', catId) || { id: catId, name: catId, icon: 'fa-tags', color: '#64748B' };
+    const txs = categoryTxMap[catId] || [];
+    txs.sort((a, b) => (b.date + ' ' + (b.time || '')).localeCompare(a.date + ' ' + (a.time || '')));
+    const count = txs.length;
+    const percent = totalExpense > 0 ? ((amount / totalExpense) * 100) : 0;
+    return {
+      id: catId,
+      name: cat.name,
+      icon: cat.icon || 'fa-tags',
+      color: cat.color || '#6366F1',
+      amount,
+      count,
+      percent,
+      transactions: txs
+    };
+  });
+
+  // Sort ranked categories
+  if (state.summarySortBy === 'count') {
+    rankedCategories.sort((a, b) => b.count - a.count || b.amount - a.amount);
+  } else {
+    // Default by amount descending
+    rankedCategories.sort((a, b) => b.amount - a.amount || b.count - a.count);
+  }
+
+  const topCategory = rankedCategories.length > 0 ? rankedCategories[0] : null;
+  const lowestCategory = rankedCategories.length > 1 ? rankedCategories[rankedCategories.length - 1] : null;
+
+  // Top 5 Largest Single Expense Transactions
+  const top5SingleExpenses = monthTxList
+    .filter(tx => tx.type === 'expense')
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+
+  return {
+    yearMonthStr,
+    year,
+    month,
+    daysInMonth,
+    daysElapsed,
+    isCurrentMonth,
+    isPastMonth,
+    totalIncome,
+    genuineIncome,
+    totalExpense,
+    actualSpending,
+    totalSavings: netSavings,
+    totalSavingsDeposited: totalSavings,
+    totalSavingsWithdrawal,
+    netBalance,
+    dedicatedSavingsRate: dedicatedSavingsRate.toFixed(1),
+    balancePercentOfIncome: balancePercentOfIncome.toFixed(1),
+    dailyAverageExpense,
+    projectedTotalExpense,
+    peakDay,
+    peakAmount,
+    peakDayDesc,
+    topPmKey,
+    topPmObj,
+    topPmAmount,
+    topPmPercent,
+    rankedCategories,
+    topCategory,
+    lowestCategory,
+    dailyExpenses,
+    dailyIncome,
+    paymentMethodExpenses,
+    top5SingleExpenses,
+    expenseCount: monthTxList.filter(t => t.type === 'expense').length,
+    incomeCount: monthTxList.filter(t => t.type === 'income').length,
+    totalCount: monthTxList.length
+  };
+}
+
+function renderSummaryView() {
+  const data = calculateMonthlySummaryData(state.summaryMonth);
+
+  // Month labels & badge
+  const monthLabel = getThaiMonthLabel(data.yearMonthStr);
+  const monthBadgeEl = document.getElementById('summaryMonthLabelBadge');
+  if (monthBadgeEl) {
+    monthBadgeEl.innerText = monthLabel;
+  }
+  const monthPicker = document.getElementById('summaryMonthPicker');
+  if (monthPicker && monthPicker.value !== data.yearMonthStr) {
+    monthPicker.value = data.yearMonthStr;
+  }
+
+  // Card 1: Total Expense
+  const totalExpenseEl = document.getElementById('summaryCardTotalExpense');
+  const expenseCountBadge = document.getElementById('summaryExpenseCountBadge');
+  const dailyAvgEl = document.getElementById('summaryCardDailyAvg');
+  if (totalExpenseEl) totalExpenseEl.innerText = formatMoney(data.totalExpense);
+  if (expenseCountBadge) expenseCountBadge.innerText = `${data.expenseCount} รายการ`;
+  if (dailyAvgEl) dailyAvgEl.innerText = `฿${formatNumber(data.dailyAverageExpense)} / วัน`;
+
+  // Card 2: Total Income
+  const totalIncomeEl = document.getElementById('summaryCardTotalIncome');
+  const incomeCountBadge = document.getElementById('summaryIncomeCountBadge');
+  const genuineIncomeEl = document.getElementById('summaryCardGenuineIncome');
+  if (totalIncomeEl) totalIncomeEl.innerText = `+${formatMoney(data.totalIncome)}`;
+  if (incomeCountBadge) incomeCountBadge.innerText = `${data.incomeCount} รายการ`;
+  if (genuineIncomeEl) genuineIncomeEl.innerText = `+${formatMoney(data.genuineIncome)}`;
+
+  // Card 3: Net Balance
+  const netBalanceEl = document.getElementById('summaryCardNetBalance');
+  const balanceStatusBadge = document.getElementById('summaryBalanceStatusBadge');
+  const balancePercentEl = document.getElementById('summaryCardBalancePercent');
+  if (netBalanceEl) {
+    netBalanceEl.innerText = formatMoney(data.netBalance);
+    netBalanceEl.className = data.netBalance >= 0 
+      ? 'text-lg sm:text-2xl font-black text-emerald-600 tracking-tight'
+      : 'text-lg sm:text-2xl font-black text-rose-600 tracking-tight';
+  }
+  if (balanceStatusBadge) {
+    if (data.netBalance >= 0) {
+      balanceStatusBadge.innerText = 'กระเป๋าเป็นบวก 🟢';
+      balanceStatusBadge.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700';
+    } else {
+      balanceStatusBadge.innerText = 'ติดลบเกินตัว 🔴';
+      balanceStatusBadge.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-700';
+    }
+  }
+  if (balancePercentEl) {
+    balancePercentEl.innerText = `${data.balancePercentOfIncome}% ของรายรับ`;
+  }
+
+  // Card 4: Savings
+  const totalSavingsEl = document.getElementById('summaryCardTotalSavings');
+  const savingsRateBadge = document.getElementById('summaryCardSavingsRateBadge');
+  const savingsHealthEl = document.getElementById('summaryCardSavingsHealth');
+  if (totalSavingsEl) totalSavingsEl.innerText = formatMoney(data.totalSavings);
+  if (savingsRateBadge) savingsRateBadge.innerText = `${data.dedicatedSavingsRate}%`;
+  if (savingsHealthEl) {
+    const rate = parseFloat(data.dedicatedSavingsRate);
+    if (rate >= 30) {
+      savingsHealthEl.innerText = 'สุดยอดวินัยการเงิน 💎';
+    } else if (rate >= 20) {
+      savingsHealthEl.innerText = 'ยอดเยี่ยม (เกณฑ์ 20%) 🌟';
+    } else if (rate >= 10) {
+      savingsHealthEl.innerText = 'กำลังดี มีวินัย 👍';
+    } else if (rate > 0) {
+      savingsHealthEl.innerText = 'เริ่มต้นสะสม 🌱';
+    } else {
+      savingsHealthEl.innerText = 'ยังไม่มีเงินออม 🎯';
+    }
+  }
+
+  // Insights Banner
+  const forecastAmountEl = document.getElementById('insightForecastAmount');
+  const forecastDescEl = document.getElementById('insightForecastDesc');
+  if (forecastAmountEl) forecastAmountEl.innerText = `~${formatMoney(data.projectedTotalExpense)}`;
+  if (forecastDescEl) {
+    if (data.isCurrentMonth) {
+      forecastDescEl.innerText = `ผ่านมา ${data.daysElapsed}/${data.daysInMonth} วัน เฉลี่ย ฿${formatNumber(data.dailyAverageExpense)}/วัน`;
+    } else if (data.isPastMonth) {
+      forecastDescEl.innerText = `เดือนที่ผ่านมา ยอดจบที่ ฿${formatNumber(data.totalExpense)}`;
+    } else {
+      forecastDescEl.innerText = 'เดือนในอนาคต';
+    }
+  }
+
+  const peakAmountEl = document.getElementById('insightPeakAmount');
+  const peakDescEl = document.getElementById('insightPeakDesc');
+  if (peakAmountEl) {
+    if (data.peakAmount > 0) {
+      peakAmountEl.innerText = `วันที่ ${data.peakDay} (${formatMoney(data.peakAmount)})`;
+    } else {
+      peakAmountEl.innerText = '-';
+    }
+  }
+  if (peakDescEl) {
+    peakDescEl.innerText = data.peakDayDesc || 'ไม่มีรายการใช้จ่าย';
+  }
+
+  const topPmEl = document.getElementById('insightTopPaymentMethod');
+  const topPmDescEl = document.getElementById('insightTopPaymentDesc');
+  if (topPmEl) {
+    if (data.totalExpense > 0) {
+      topPmEl.innerText = `${data.topPmObj.name} (${data.topPmPercent}%)`;
+    } else {
+      topPmEl.innerText = '-';
+    }
+  }
+  if (topPmDescEl) {
+    if (data.totalExpense > 0) {
+      topPmDescEl.innerText = `ยอดชำระ ฿${formatNumber(data.topPmAmount)} จากรายจ่ายทั้งหมด`;
+    } else {
+      topPmDescEl.innerText = 'ไม่มีข้อมูลการจ่าย';
+    }
+  }
+
+  // Spotlight Top & Lowest Spender
+  renderSpotlightSpenders(data);
+
+  // Ranked Categories List
+  renderRankedCategories(data);
+
+  // Charts
+  renderSummaryCharts(data);
+
+  // Payment methods breakdown
+  renderSummaryPaymentMethods(data);
+
+  // Top 5 largest single transactions
+  renderSummaryTopTransactions(data);
+}
+
+function renderSpotlightSpenders(data) {
+  const topCard = document.getElementById('spotlightTopSpenderCard');
+  const lowestCard = document.getElementById('spotlightLowestSpenderCard');
+  const highlightsContainer = document.getElementById('spotlightHighlightsContainer');
+
+  if (data.rankedCategories.length === 0) {
+    if (highlightsContainer) highlightsContainer.classList.add('hidden');
+    return;
+  }
+
+  if (highlightsContainer) highlightsContainer.classList.remove('hidden');
+
+  // Top Spender
+  const topCat = data.topCategory;
+  if (topCat) {
+    document.getElementById('spotlightTopCatName').innerText = topCat.name;
+    document.getElementById('spotlightTopCatDetail').innerText = `${topCat.count} รายการ`;
+    document.getElementById('spotlightTopCatAmount').innerText = formatMoney(topCat.amount);
+    document.getElementById('spotlightTopCatPercent').innerText = `${topCat.percent.toFixed(1)}% ของรายจ่าย`;
+  }
+
+  // Lowest Spender
+  const lowestCat = data.lowestCategory;
+  if (lowestCat && data.rankedCategories.length > 1) {
+    lowestCard.classList.remove('hidden');
+    document.getElementById('spotlightLowestCatName').innerText = lowestCat.name;
+    document.getElementById('spotlightLowestCatDetail').innerText = `${lowestCat.count} รายการ`;
+    document.getElementById('spotlightLowestCatAmount').innerText = formatMoney(lowestCat.amount);
+    document.getElementById('spotlightLowestCatPercent').innerText = `${lowestCat.percent.toFixed(1)}% ของรายจ่าย`;
+  } else {
+    if (lowestCard) lowestCard.classList.add('hidden');
+  }
+}
+
+function renderRankedCategories(data) {
+  const listContainer = document.getElementById('rankedCategoriesList');
+  const emptyNotice = document.getElementById('summaryRankEmptyNotice');
+  const countBadge = document.getElementById('rankingCategoryCountBadge');
+
+  if (!listContainer) return;
+
+  if (countBadge) {
+    countBadge.innerText = `${data.rankedCategories.length} หมวดหมู่`;
+  }
+
+  if (data.rankedCategories.length === 0) {
+    listContainer.innerHTML = '';
+    if (emptyNotice) emptyNotice.classList.remove('hidden');
+    return;
+  }
+
+  if (emptyNotice) emptyNotice.classList.add('hidden');
+
+  let html = '';
+  data.rankedCategories.forEach((cat, index) => {
+    const isExpanded = state.expandedCategories.has(cat.id);
+    
+    // Rank Badge
+    let rankBadgeHtml = '';
+    if (index === 0) {
+      rankBadgeHtml = `<span class="rank-badge rank-badge-1" title="อันดับ 1">🥇1</span>`;
+    } else if (index === 1) {
+      rankBadgeHtml = `<span class="rank-badge rank-badge-2" title="อันดับ 2">🥈2</span>`;
+    } else if (index === 2) {
+      rankBadgeHtml = `<span class="rank-badge rank-badge-3" title="อันดับ 3">🥉3</span>`;
+    } else {
+      rankBadgeHtml = `<span class="rank-badge rank-badge-default font-mono">#${index + 1}</span>`;
+    }
+
+    // Top / Lowest badges
+    let tagHtml = '';
+    if (index === 0) {
+      tagHtml = `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">จ่ายเยอะสุด 🔥</span>`;
+    } else if (index === data.rankedCategories.length - 1 && data.rankedCategories.length > 1) {
+      tagHtml = `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700">จ่ายน้อยสุด 🌱</span>`;
+    }
+
+    // Drilldown item rows
+    let drilldownRowsHtml = '';
+    if (isExpanded) {
+      drilldownRowsHtml = cat.transactions.map(t => {
+        const pmObj = PAYMENT_METHODS[t.paymentMethod] || { name: 'พร้อมเพย์', icon: 'fa-qrcode' };
+        return `
+          <div class="flex items-center justify-between py-1.5 px-2.5 bg-white rounded-xl border border-slate-200/60 text-xs hover:border-slate-300 transition-colors">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-[10px] text-slate-400 font-mono shrink-0">${formatThaiDate(t.date)}${t.time ? ' ' + t.time : ''}</span>
+              <span class="font-medium text-slate-800 truncate">${escapeHtml(t.note || cat.name)}</span>
+              <span class="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">${pmObj.name}</span>
+            </div>
+            <div class="font-bold text-rose-600 text-xs shrink-0 pl-2">
+              -฿${formatNumber(t.amount)}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    html += `
+      <div class="ranked-cat-card bg-slate-50/70 hover:bg-slate-50 p-3 sm:p-3.5 rounded-2xl border border-slate-200/80 transition-all cursor-pointer" onclick="toggleCategoryDrilldown('${cat.id}')">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            ${rankBadgeHtml}
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs shrink-0 shadow-2xs" style="background-color: ${cat.color};">
+              <i class="fa-solid ${cat.icon}"></i>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold text-xs sm:text-sm text-slate-900 truncate">${escapeHtml(cat.name)}</span>
+                ${tagHtml}
+              </div>
+              <div class="text-[11px] text-slate-400">
+                ${cat.count} รายการ
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 shrink-0">
+            <div class="text-right">
+              <div class="font-bold text-sm sm:text-base text-rose-600">${formatMoney(cat.amount)}</div>
+              <div class="text-[11px] font-semibold text-slate-500">${cat.percent.toFixed(1)}%</div>
+            </div>
+            <div class="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}">
+              <i class="fa-solid fa-chevron-down text-[10px]"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-slate-200/80 h-2 rounded-full overflow-hidden mt-2.5">
+          <div class="progress-fill h-full rounded-full" style="width: ${Math.min(100, Math.max(2, cat.percent))}%; background-color: ${cat.color};"></div>
+        </div>
+
+        <!-- Accordion Drilldown -->
+        ${isExpanded ? `
+          <div class="drilldown-container mt-3 pt-3 border-t border-slate-200/70 space-y-1.5" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 px-1 pb-1">
+              <span class="font-semibold">รายการในหมวดนี้ (${cat.transactions.length} รายการ):</span>
+              <button type="button" onclick="toggleCategoryDrilldown('${cat.id}')" class="text-indigo-600 hover:underline text-[10px]">พับเก็บ</button>
+            </div>
+            ${drilldownRowsHtml}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  });
+
+  listContainer.innerHTML = html;
+}
+
+function renderSummaryCharts(data) {
+  // 1. Doughnut Chart: หมวดหมู่
+  const donutCanvas = document.getElementById('summaryDonutChart');
+  const donutEmpty = document.getElementById('summaryDonutEmptyNotice');
+
+  if (donutCanvas) {
+    if (data.rankedCategories.length === 0) {
+      if (summaryDonutChartInstance) {
+        summaryDonutChartInstance.destroy();
+        summaryDonutChartInstance = null;
+      }
+      donutCanvas.classList.add('hidden');
+      if (donutEmpty) donutEmpty.classList.remove('hidden');
+    } else {
+      donutCanvas.classList.remove('hidden');
+      if (donutEmpty) donutEmpty.classList.add('hidden');
+
+      const labels = data.rankedCategories.map(c => c.name);
+      const chartData = data.rankedCategories.map(c => c.amount);
+      const colors = data.rankedCategories.map(c => c.color);
+
+      if (summaryDonutChartInstance) summaryDonutChartInstance.destroy();
+
+      summaryDonutChartInstance = new Chart(donutCanvas, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: chartData,
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: '#ffffff',
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 10,
+                font: { family: 'Prompt', size: 11 },
+                padding: 10
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const val = context.raw || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                  return ` ${context.label}: ฿${formatNumber(val)} (${pct}%)`;
+                }
+              }
+            }
+          },
+          cutout: '62%'
+        }
+      });
+    }
+  }
+
+  // 2. Daily Trend Bar Chart (1..daysInMonth)
+  const dailyCanvas = document.getElementById('summaryDailyTrendChart');
+  const dailyEmpty = document.getElementById('summaryDailyTrendEmptyNotice');
+
+  if (dailyCanvas) {
+    const hasAnyDailyExpense = Object.values(data.dailyExpenses).some(v => v > 0);
+    if (!hasAnyDailyExpense) {
+      if (summaryDailyTrendChartInstance) {
+        summaryDailyTrendChartInstance.destroy();
+        summaryDailyTrendChartInstance = null;
+      }
+      dailyCanvas.classList.add('hidden');
+      if (dailyEmpty) dailyEmpty.classList.remove('hidden');
+    } else {
+      dailyCanvas.classList.remove('hidden');
+      if (dailyEmpty) dailyEmpty.classList.add('hidden');
+
+      const days = [];
+      const amounts = [];
+      for (let d = 1; d <= data.daysInMonth; d++) {
+        days.push(`${d}`);
+        amounts.push(data.dailyExpenses[d] || 0);
+      }
+
+      if (summaryDailyTrendChartInstance) summaryDailyTrendChartInstance.destroy();
+
+      summaryDailyTrendChartInstance = new Chart(dailyCanvas, {
+        type: 'bar',
+        data: {
+          labels: days,
+          datasets: [{
+            label: 'รายจ่ายรายวัน (฿)',
+            data: amounts,
+            backgroundColor: '#F43F5E',
+            hoverBackgroundColor: '#E11D48',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => `วันที่ ${items[0].label} ${getThaiMonthLabel(data.yearMonthStr)}`,
+                label: (ctx) => ` ยอดใช้จ่าย: ฿${formatNumber(ctx.raw)}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (v) => '฿' + formatCompactNumber(v),
+                font: { family: 'Prompt', size: 10 }
+              }
+            },
+            x: {
+              grid: { display: false },
+              ticks: {
+                font: { family: 'Prompt', size: 9 },
+                maxRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: 16
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+}
+
+function renderSummaryPaymentMethods(data) {
+  const container = document.getElementById('summaryPaymentMethodsContainer');
+  if (!container) return;
+
+  const entries = Object.entries(data.paymentMethodExpenses);
+  const total = data.totalExpense;
+
+  if (total === 0) {
+    container.innerHTML = `
+      <div class="text-center py-6 text-slate-400 text-xs">
+        ไม่มีรายการใช้จ่ายในเดือนนี้
+      </div>
+    `;
+    return;
+  }
+
+  // Sort by amount descending
+  entries.sort((a, b) => b[1] - a[1]);
+
+  let html = '';
+  entries.forEach(([pmKey, amt]) => {
+    const pm = PAYMENT_METHODS[pmKey] || { name: pmKey, icon: 'fa-wallet' };
+    const pct = total > 0 ? ((amt / total) * 100).toFixed(1) : 0;
+    html += `
+      <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
+        <div class="flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid ${pm.icon} text-slate-500 w-4 text-center"></i>
+            <span class="font-medium text-slate-700">${pm.name}</span>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span class="font-bold text-slate-900">฿${formatNumber(amt)}</span>
+            <span class="text-[11px] font-semibold text-slate-400">${pct}%</span>
+          </div>
+        </div>
+        <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+          <div class="bg-indigo-600 h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function renderSummaryTopTransactions(data) {
+  const container = document.getElementById('summaryTopTransactionsContainer');
+  if (!container) return;
+
+  if (data.top5SingleExpenses.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-6 text-slate-400 text-xs">
+        ไม่มีรายการรายจ่ายในเดือนนี้
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  data.top5SingleExpenses.forEach((tx, idx) => {
+    const cat = getCategoryObj('expense', tx.category) || { name: tx.category, color: '#6366F1' };
+    const pm = PAYMENT_METHODS[tx.paymentMethod] || { name: 'พร้อมเพย์' };
+
+    html += `
+      <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100/70 border border-slate-100 transition-colors text-xs">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 font-bold flex items-center justify-center text-[11px] shrink-0 font-mono">
+            #${idx + 1}
+          </span>
+          <div class="min-w-0">
+            <div class="font-bold text-slate-800 truncate">${escapeHtml(tx.note || cat.name)}</div>
+            <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+              <span>${formatThaiDate(tx.date)}</span>
+              <span>•</span>
+              <span class="px-1.5 py-0.2 rounded-md font-medium" style="background-color: ${cat.color}15; color: ${cat.color};">${cat.name}</span>
+              <span>•</span>
+              <span>${pm.name}</span>
+            </div>
+          </div>
+        </div>
+        <div class="font-black text-rose-600 text-sm shrink-0 pl-2">
+          -฿${formatNumber(tx.amount)}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function handlePrintSummary() {
+  document.body.classList.add('printing-summary');
+  window.print();
+  setTimeout(() => {
+    document.body.classList.remove('printing-summary');
+  }, 1000);
 }
 
 // ==========================================================================

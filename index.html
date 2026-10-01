@@ -39,6 +39,18 @@
         </div>
       </div>
 
+      <!-- Main Navigation Tabs (สลับโหมด บันทึกรายวัน vs สรุปรายงาน) -->
+      <nav class="flex items-center bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 shadow-2xs shrink-0">
+        <button id="navTabLedger" type="button" class="tab-nav-btn active flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-indigo-600 shadow-2xs transition-all cursor-pointer">
+          <i class="fa-solid fa-pen-to-square text-xs sm:text-sm"></i>
+          <span class="inline">บันทึก</span><span class="hidden md:inline">รายวัน</span>
+        </button>
+        <button id="navTabSummary" type="button" class="tab-nav-btn flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-500 hover:text-slate-800 transition-all cursor-pointer">
+          <i class="fa-solid fa-chart-pie text-xs sm:text-sm"></i>
+          <span class="inline">สรุป</span><span class="hidden md:inline">รายงาน</span>
+        </button>
+      </nav>
+
       <!-- Compact Header Summary Pills (ไม่เกะกะสายตา) -->
       <div class="flex items-center gap-2 sm:gap-5 bg-slate-100/80 px-2 sm:px-4 py-1 sm:py-1.5 rounded-2xl border border-slate-200/60 shrink-0">
         <div class="text-left">
@@ -197,8 +209,8 @@
     </div>
   </section>
 
-  <!-- ================= MAIN TWO-COLUMN WORKSPACE ================= -->
-  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mt-4 sm:mt-5 overflow-x-hidden w-full">
+  <!-- ================= MAIN TWO-COLUMN WORKSPACE (TAB 1: LEDGER) ================= -->
+  <main id="ledgerView" class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mt-4 sm:mt-5 overflow-x-hidden w-full">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start w-full">
       
       <!-- ================= LEFT COLUMN: QUICK ENTRY FORM (FOCUS AREA) ================= -->
@@ -411,6 +423,310 @@
 
     </div>
   </main>
+
+  <!-- ================= SUMMARY & REPORTING VIEW (TAB 2: SUMMARY DASHBOARD) ================= -->
+  <div id="summaryView" class="hidden max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mt-4 sm:mt-5 overflow-x-hidden w-full space-y-5 animate-fade-in pb-12">
+    
+    <!-- 1. Header Toolbar: Month Selector & Print/Action buttons -->
+    <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center text-lg shadow-sm shadow-indigo-100 shrink-0">
+          <i class="fa-solid fa-chart-pie"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="font-bold text-base sm:text-lg text-slate-900 leading-tight">สรุปภาพรวมรายจ่ายประจำเดือน</h2>
+            <span id="summaryMonthLabelBadge" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60"></span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">วิเคราะห์เจาะลึก จัดอันดับค่าใช้จ่ายมากสุด-น้อยสุด และแนวโน้มรายวัน</p>
+        </div>
+      </div>
+
+      <!-- Month Controls -->
+      <div class="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end flex-wrap">
+        <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200/70">
+          <button id="summaryPrevMonthBtn" type="button" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:bg-white transition-all cursor-pointer" title="เดือนก่อนหน้า">
+            <i class="fa-solid fa-chevron-left text-xs"></i>
+          </button>
+          
+          <input type="month" id="summaryMonthPicker" class="bg-transparent font-bold text-xs sm:text-sm text-slate-800 px-2 py-1 focus:outline-none cursor-pointer">
+
+          <button id="summaryNextMonthBtn" type="button" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:bg-white transition-all cursor-pointer" title="เดือนถัดไป">
+            <i class="fa-solid fa-chevron-right text-xs"></i>
+          </button>
+        </div>
+
+        <button id="summaryCurrentMonthBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-all shadow-2xs shrink-0 cursor-pointer">
+          เดือนปัจจุบัน
+        </button>
+
+        <button id="summaryPrintBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 transition-all shadow-2xs flex items-center gap-1.5 shrink-0 cursor-pointer">
+          <i class="fa-solid fa-print text-xs"></i>
+          <span class="hidden sm:inline">พิมพ์รายงาน</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. Four Key Metric Cards (4 การ์ดสรุปยอดเงินหลัก) -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <!-- Card 1: รายจ่ายเดือนนี้ -->
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs relative overflow-hidden group hover:border-rose-300 transition-all">
+        <div class="absolute -right-2 -top-2 w-16 h-16 rounded-full bg-rose-50 text-rose-200 -z-0 flex items-center justify-center text-3xl font-black select-none pointer-events-none opacity-60">💸</div>
+        <div class="relative z-10">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span class="font-medium">รายจ่ายเดือนนี้</span>
+            <span id="summaryExpenseCountBadge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-600">0 รายการ</span>
+          </div>
+          <div id="summaryCardTotalExpense" class="text-lg sm:text-2xl font-black text-rose-600 tracking-tight">฿0.00</div>
+          <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>เฉลี่ยต่อวัน:</span>
+            <span id="summaryCardDailyAvg" class="font-bold text-slate-700">฿0.00 / วัน</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: รายรับเดือนนี้ -->
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs relative overflow-hidden group hover:border-emerald-300 transition-all">
+        <div class="absolute -right-2 -top-2 w-16 h-16 rounded-full bg-emerald-50 text-emerald-200 -z-0 flex items-center justify-center text-3xl font-black select-none pointer-events-none opacity-60">💰</div>
+        <div class="relative z-10">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span class="font-medium">รายรับเดือนนี้</span>
+            <span id="summaryIncomeCountBadge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-600">0 รายการ</span>
+          </div>
+          <div id="summaryCardTotalIncome" class="text-lg sm:text-2xl font-black text-emerald-600 tracking-tight">+฿0.00</div>
+          <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>รายได้จริง:</span>
+            <span id="summaryCardGenuineIncome" class="font-bold text-emerald-700">+฿0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: คงเหลือสุทธิ -->
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs relative overflow-hidden group hover:border-indigo-300 transition-all">
+        <div class="absolute -right-2 -top-2 w-16 h-16 rounded-full bg-indigo-50 text-indigo-200 -z-0 flex items-center justify-center text-3xl font-black select-none pointer-events-none opacity-60">⚖️</div>
+        <div class="relative z-10">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span class="font-medium">คงเหลือสุทธิ</span>
+            <span id="summaryBalanceStatusBadge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-600">ปกติ</span>
+          </div>
+          <div id="summaryCardNetBalance" class="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">฿0.00</div>
+          <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>คิดเป็น:</span>
+            <span id="summaryCardBalancePercent" class="font-bold text-slate-700">0% ของรายรับ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: เงินออมสะสม -->
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs relative overflow-hidden group hover:border-teal-300 transition-all">
+        <div class="absolute -right-2 -top-2 w-16 h-16 rounded-full bg-teal-50 text-teal-200 -z-0 flex items-center justify-center text-3xl font-black select-none pointer-events-none opacity-60">🐷</div>
+        <div class="relative z-10">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span class="font-medium">เงินออมสุทธิ</span>
+            <span id="summaryCardSavingsRateBadge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-800">0%</span>
+          </div>
+          <div id="summaryCardTotalSavings" class="text-lg sm:text-2xl font-black text-teal-700 tracking-tight">฿0.00</div>
+          <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>วินัยการเงิน:</span>
+            <span id="summaryCardSavingsHealth" class="font-bold text-teal-800">ตามเกณฑ์ 🌟</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Smart Insights Highlights Bar (พยากรณ์สิ้นเดือน + วันจ่ายหนักสุด + ช่องทางจ่าย) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+      <!-- Insight 1: พยากรณ์สิ้นเดือน -->
+      <div class="bg-gradient-to-br from-indigo-50/70 via-purple-50/40 to-white p-4 rounded-2xl border border-indigo-100/90 flex items-center gap-3 shadow-2xs">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-base shrink-0 shadow-xs">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-[11px] font-bold text-indigo-900">พยากรณ์รายจ่ายสิ้นเดือน</div>
+          <div id="insightForecastAmount" class="text-sm font-black text-indigo-700">~฿0.00</div>
+          <div id="insightForecastDesc" class="text-[10px] text-slate-500 truncate">คำนวณจากอัตราเฉลี่ยต่อวัน</div>
+        </div>
+      </div>
+
+      <!-- Insight 2: วันที่จ่ายหนักสุด -->
+      <div class="bg-gradient-to-br from-rose-50/70 via-orange-50/40 to-white p-4 rounded-2xl border border-rose-100/90 flex items-center gap-3 shadow-2xs">
+        <div class="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center text-base shrink-0 shadow-xs">
+          <i class="fa-solid fa-bolt"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-[11px] font-bold text-rose-900">วันที่จ่ายหนักที่สุด</div>
+          <div id="insightPeakAmount" class="text-sm font-black text-rose-700">-</div>
+          <div id="insightPeakDesc" class="text-[10px] text-slate-500 truncate">ไม่มีข้อมูลการจ่าย</div>
+        </div>
+      </div>
+
+      <!-- Insight 3: ช่องทางจ่ายเงินยอดนิยม -->
+      <div class="bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-white p-4 rounded-2xl border border-emerald-100/90 flex items-center gap-3 shadow-2xs">
+        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-base shrink-0 shadow-xs">
+          <i class="fa-solid fa-wallet"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-[11px] font-bold text-emerald-900">ช่องทางจ่ายหลัก</div>
+          <div id="insightTopPaymentMethod" class="text-sm font-black text-emerald-700">-</div>
+          <div id="insightTopPaymentDesc" class="text-[10px] text-slate-500 truncate">ไม่มีข้อมูล</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. ⭐ CORE SECTION: จัดอันดับค่าใช้จ่าย มากสุด ➔ น้อยสุด (Expense Ranking & Breakdown) -->
+    <div class="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs shadow-2xs">
+                <i class="fa-solid fa-trophy"></i>
+              </span>
+              <span>จัดอันดับค่าใช้จ่ายตามหมวดหมู่</span>
+            </h3>
+            <span id="rankingCategoryCountBadge" class="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg">0 หมวด</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">เรียงลำดับจากหมวดหมู่ที่ใช้เงินเยอะที่สุดลงไปหาน้อยที่สุด พร้อมคลิกดูรายการย่อยได้</p>
+        </div>
+
+        <!-- Sort controls -->
+        <div class="flex items-center gap-1.5 self-end sm:self-auto">
+          <div class="bg-slate-100 p-1 rounded-xl flex items-center text-xs">
+            <button id="sortRankByAmountBtn" type="button" class="px-2.5 py-1 rounded-lg font-bold bg-white text-indigo-600 shadow-2xs transition-all cursor-pointer">
+              มาก ➔ น้อย (฿)
+            </button>
+            <button id="sortRankByCountBtn" type="button" class="px-2.5 py-1 rounded-lg font-medium text-slate-500 hover:text-slate-800 transition-all cursor-pointer">
+              ตามจำนวนครั้ง
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spotlight Highlights: จ่ายเยอะสุด 🥇 vs จ่ายน้อยสุด 🥉 -->
+      <div id="spotlightHighlightsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <!-- Top Spender Spotlight Card -->
+        <div id="spotlightTopSpenderCard" class="p-3.5 rounded-2xl bg-gradient-to-r from-rose-50 to-orange-50/60 border border-rose-200/80 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center text-lg shadow-xs shrink-0">
+              🥇
+            </div>
+            <div>
+              <div class="text-[10px] font-bold text-rose-800 uppercase tracking-wider">จ่ายเยอะที่สุด (Top Spender)</div>
+              <div id="spotlightTopCatName" class="font-bold text-slate-900 text-sm">-</div>
+              <div id="spotlightTopCatDetail" class="text-[11px] text-slate-500">-</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div id="spotlightTopCatAmount" class="font-black text-rose-600 text-base">฿0.00</div>
+            <div id="spotlightTopCatPercent" class="text-[11px] font-bold text-rose-700">0%</div>
+          </div>
+        </div>
+
+        <!-- Lowest Spender Spotlight Card -->
+        <div id="spotlightLowestSpenderCard" class="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50/60 border border-emerald-200/80 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-teal-500 text-white flex items-center justify-center text-lg shadow-xs shrink-0">
+              🥉
+            </div>
+            <div>
+              <div class="text-[10px] font-bold text-teal-800 uppercase tracking-wider">จ่ายน้อยที่สุด (Lowest Spender)</div>
+              <div id="spotlightLowestCatName" class="font-bold text-slate-900 text-sm">-</div>
+              <div id="spotlightLowestCatDetail" class="text-[11px] text-slate-500">-</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div id="spotlightLowestCatAmount" class="font-black text-teal-700 text-base">฿0.00</div>
+            <div id="spotlightLowestCatPercent" class="text-[11px] font-bold text-teal-800">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ranked List Container -->
+      <div id="rankedCategoriesList" class="space-y-2 pt-1">
+        <!-- Dynamically rendered ranked category rows with drilldown -->
+      </div>
+
+      <!-- Empty state when no expenses in month -->
+      <div id="summaryRankEmptyNotice" class="hidden text-center py-12 px-4 bg-slate-50/60 rounded-2xl border border-slate-200/80">
+        <div class="w-14 h-14 mx-auto mb-2 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-2xl">
+          <i class="fa-solid fa-chart-pie"></i>
+        </div>
+        <h4 class="text-sm font-bold text-slate-700">ไม่มีข้อมูลรายจ่ายในเดือนที่เลือก</h4>
+        <p class="text-xs text-slate-400 mt-1">เลือกเดือนอื่นที่มีรายการ หรือสลับไปที่แท็บบันทึกรายวันเพื่อเพิ่มรายการ</p>
+      </div>
+    </div>
+
+    <!-- 5. Visual Charts (Donut + Daily Trend) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Donut Chart: หมวดหมู่ -->
+      <div class="lg:col-span-5 bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-pie text-indigo-500"></i>
+            <span>สัดส่วนรายจ่ายตามหมวดหมู่</span>
+          </h4>
+          <span class="text-[10px] text-slate-400">Doughnut Chart</span>
+        </div>
+        <div class="relative w-full h-64 flex items-center justify-center my-auto">
+          <canvas id="summaryDonutChart"></canvas>
+          <div id="summaryDonutEmptyNotice" class="hidden text-center text-slate-400 text-xs py-8">
+            <i class="fa-solid fa-chart-pie text-3xl mb-1 text-slate-200"></i>
+            <p>ไม่มีข้อมูลรายจ่ายในเดือนนี้</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily Spending Bar Chart -->
+      <div class="lg:col-span-7 bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <div>
+            <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <i class="fa-solid fa-chart-simple text-indigo-500"></i>
+              <span>แนวโน้มการใช้จ่ายแต่ละวัน (1 - 31)</span>
+            </h4>
+            <p class="text-[10px] text-slate-400">เปรียบเทียบยอดใช้จ่ายในแต่ละวันของเดือน</p>
+          </div>
+          <span class="text-[10px] font-semibold px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md">รายจ่ายรายวัน</span>
+        </div>
+        <div class="relative w-full h-64">
+          <canvas id="summaryDailyTrendChart"></canvas>
+          <div id="summaryDailyTrendEmptyNotice" class="hidden text-center text-slate-400 text-xs py-16">
+            <i class="fa-solid fa-chart-simple text-3xl mb-1 text-slate-200"></i>
+            <p>ไม่มีข้อมูลรายวันในเดือนนี้</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Payment Methods Breakdown & Top 5 Single Large Transactions -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Payment Methods -->
+      <div class="lg:col-span-5 bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs space-y-3">
+        <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5 pb-2 border-b border-slate-100">
+          <i class="fa-solid fa-credit-card text-emerald-500"></i>
+          <span>สัดส่วนช่องทางการชำระเงิน</span>
+        </h4>
+        <div id="summaryPaymentMethodsContainer" class="space-y-2.5">
+          <!-- Dynamically populated payment methods progress bars -->
+        </div>
+      </div>
+
+      <!-- Top 5 Largest Single Transactions -->
+      <div class="lg:col-span-7 bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs space-y-3">
+        <h4 class="text-xs font-bold text-slate-800 flex items-center justify-between pb-2 border-b border-slate-100">
+          <span class="flex items-center gap-1.5">
+            <i class="fa-solid fa-receipt text-rose-500"></i>
+            <span>5 รายการจ่ายก้อนใหญ่ที่สุดในเดือนนี้</span>
+          </span>
+          <span class="text-[10px] text-slate-400">Single Transactions</span>
+        </h4>
+        <div id="summaryTopTransactionsContainer" class="space-y-2">
+          <!-- Dynamically populated top 5 transactions -->
+        </div>
+      </div>
+    </div>
+
+  </div>
 
   <!-- ================= KEYBOARD SHORTCUTS MODAL ================= -->
   <div id="shortcutsModal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
