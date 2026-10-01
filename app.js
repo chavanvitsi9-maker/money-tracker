@@ -1138,37 +1138,34 @@ function setupEventListeners() {
     renderLedger();
   });
 
-  // Data Actions
+  // Data Actions inside Data Management Modal
   document.getElementById('exportCsvBtn')?.addEventListener('click', exportToCSV);
   document.getElementById('exportJsonBtn')?.addEventListener('click', exportToJSON);
-  document.getElementById('importJsonInput')?.addEventListener('change', importFromJSON);
-  document.getElementById('printReportBtn')?.addEventListener('click', () => window.print());
-
+  document.getElementById('importJsonInput')?.addEventListener('change', (e) => {
+    importFromJSON(e);
+    closeDataManagementModal();
+  });
+  document.getElementById('printReportBtn')?.addEventListener('click', () => {
+    closeDataManagementModal();
+    setTimeout(() => window.print(), 150);
+  });
 
   // Google Sheets integration
-  document.getElementById('googleSheetBtn')?.addEventListener('click', openGoogleSheetModal);
+  document.getElementById('googleSheetBtn')?.addEventListener('click', () => {
+    closeDataManagementModal();
+    openGoogleSheetModal();
+  });
   document.getElementById('testGsheetBtn')?.addEventListener('click', testGoogleSheetConnection);
   document.getElementById('saveGsheetBtn')?.addEventListener('click', handleSaveGoogleSheetSettings);
   document.getElementById('uploadAllGsheetBtn')?.addEventListener('click', handleBatchUploadGoogleSheet);
   document.getElementById('pullAllGsheetBtn')?.addEventListener('click', handlePullFromGoogleSheet);
   document.getElementById('copyAppsScriptBtn')?.addEventListener('click', handleCopyAppsScriptCode);
 
-  // Tools Dropdown Menu
+  // Data Management Modal Trigger Button
   const toolsBtn = document.getElementById('toolsDropdownBtn');
-  const toolsMenu = document.getElementById('toolsDropdownMenu');
   toolsBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
-    toolsMenu?.classList.toggle('hidden');
-  });
-
-  document.addEventListener('click', (e) => {
-    if (toolsMenu && !toolsMenu.contains(e.target) && e.target !== toolsBtn) {
-      toolsMenu.classList.add('hidden');
-    }
-  });
-
-  toolsMenu?.addEventListener('click', () => {
-    toolsMenu.classList.add('hidden');
+    openDataManagementModal();
   });
 
   // Collapsible More Options Toggle
@@ -3064,9 +3061,11 @@ function setupKeyboardShortcuts() {
   window.addEventListener('keydown', (e) => {
     // If inside modal, handle Esc
     if (e.key === 'Escape') {
+      closeDataManagementModal();
       closeShortcutsModal();
       closePresetModal();
       closeNewCategoryModal();
+      closeGoogleSheetModal();
       if (state.entryForm.editingId) {
         cancelEditing();
       }
@@ -3141,6 +3140,32 @@ window.openShortcutsModal = function() {
 
 window.closeShortcutsModal = function() {
   document.getElementById('shortcutsModal')?.classList.add('hidden');
+};
+
+// ==========================================================================
+// Data Management Modal (Popup)
+// ==========================================================================
+
+window.openDataManagementModal = function() {
+  const modal = document.getElementById('dataManagementModal');
+  if (!modal) return;
+
+  // Update transaction count summary
+  const countEl = document.getElementById('dataModalTxCount');
+  if (countEl) {
+    const totalCount = (state.transactions && Array.isArray(state.transactions)) ? state.transactions.length : 0;
+    countEl.textContent = `${totalCount.toLocaleString()} รายการ`;
+  }
+
+  // Update Google Sheet status in modal
+  updateGoogleSheetUIStatus();
+
+  modal.classList.remove('hidden');
+};
+
+window.closeDataManagementModal = function() {
+  const modal = document.getElementById('dataManagementModal');
+  if (modal) modal.classList.add('hidden');
 };
 
 // ==========================================================================
@@ -3451,6 +3476,18 @@ function updateGoogleSheetUIStatus(overrideConnected = null, overrideTitle = nul
       dot.classList.remove('hidden');
     } else {
       dot.classList.add('hidden');
+    }
+  }
+
+  // Data Management Modal status badge
+  const dataGsheetBadge = document.getElementById('dataModalGsheetStatus');
+  if (dataGsheetBadge) {
+    if (isConnected) {
+      dataGsheetBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+      dataGsheetBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>เชื่อมต่อชีตแล้ว</span>';
+    } else {
+      dataGsheetBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-slate-200/70 text-slate-600';
+      dataGsheetBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-400"></span><span>ยังไม่ได้เชื่อมต่อ</span>';
     }
   }
 
